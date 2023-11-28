@@ -1,0 +1,14 @@
+{
+  "name": "nano-sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "peerDependencies": {
+    "react-native-event-listeners": "^1.0.7"
+  },
+  "author": "",
+  "license": "ISC"
+}
