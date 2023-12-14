@@ -44,8 +44,6 @@ export const getAuthTokenAndStoreInRealm = () => {
     headers: headers,
   })
     .then(json => {
-      // console.log('ajsjsjsjjs', json);
-
       if (json != null && json.data != null && json.data.access_token != null) {
         const curr = Date.now();
         const expiryTime = json.data.expires_in * 1000 + curr;
@@ -119,11 +117,7 @@ export const fetchScreenAndStoreInDb = async ({screenUrl, code_hash = ''}) => {
       headers: headers,
     })
       .then(async json => {
-        // console.log('the code from interenet', screenUrl, code_hash);
-
         if (json != null && json.status == 200) {
-          // console.log('keralal', json.data.data.json, json.data.data.signature);
-
           const isVerified = await isDataVerified({
             message: json.data.data.json,
             signature: json.data.data.signature,
@@ -154,8 +148,6 @@ export const fetchScreenFromDb = async ({screenUrl}) => {
 };
 
 export const fetchAllScreens = async () => {
-  // console.log('fetching all screen');
-
   const auth = await checkValidityAndGetAuth();
   if (auth == null) {
     return null;
@@ -205,13 +197,6 @@ const getCompleteScreensAndStoreInDb = () => {
     .then(allsc => {
       if (allsc) {
         EventRegister.emit('nano-all-screens-load', true);
-        // console.log('aaa', allsc);
-        allsc.forEach(singScrenObj => {
-          fetchScreenAndStoreInDb({
-            screenUrl: singScrenObj['url'],
-            code_hash: singScrenObj['code_hash'],
-          });
-        });
       }
     })
     .catch(() => {});
@@ -220,17 +205,35 @@ const getCompleteScreensAndStoreInDb = () => {
 export const init = navRef => {
   getCompleteScreensAndStoreInDb();
 
-  // if (navRef) {
-  //   navRef.addListener('state', sss => {
-  //     // console.log('NANO SYNC', sss['data']['state']);
-  //     // console.log('NANO SYNC', sss['data']['state']);
-  //   });
-  // }
-  // EventRegister.addEventListener('load-screen-code-from-url', url => {
-  //   console.log('received signal and fetching code from network');
-  //   fetchScreenAndStoreInDb({
-  //     screenUrl: url,
-  //     code_hash: '',
-  //   });
-  // });
+  if (navRef != null) {
+    navRef.addListener('state', sss => {
+      if (
+        sss != null &&
+        sss['data'] != null &&
+        sss['data']['state'] != null &&
+        sss['data']['state']['routes'] != null &&
+        sss['data']['state']['index'] != null
+      ) {
+        const currentRoute =
+          sss['data']['state']['routes'][sss['data']['state']['index']];
+        const screenNameUrlArray = Realm.getValue(
+          DATABASE_CONSTANTS.NAME_AND_SCREEN_URL_OBJECT,
+        );
+        if (screenNameUrlArray != null && screenNameUrlArray['value'] != null) {
+          const parsed = JSON.parse(screenNameUrlArray['value']);
+
+          const currentScreenObject = parsed.find(
+            s => s.name === currentRoute['name'],
+          );
+
+          if (currentScreenObject) {
+            fetchScreenAndStoreInDb({
+              screenUrl: currentScreenObject['url'],
+              code_hash: currentScreenObject['code_hash'],
+            });
+          }
+        }
+      }
+    });
+  }
 };
