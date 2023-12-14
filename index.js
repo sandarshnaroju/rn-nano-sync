@@ -56,7 +56,7 @@ export const getAuthTokenAndStoreInRealm = () => {
       }
     })
     .catch(err => {
-      console.log('error', err);
+      console.log('auth token refresh error', err);
     });
 };
 
@@ -186,7 +186,7 @@ export const fetchAllScreens = async () => {
       }
     })
     .catch(err => {
-      console.log('errooror', err);
+      console.log('fetching all screens error', err);
 
       return null;
     });
@@ -206,16 +206,16 @@ export const init = navRef => {
   getCompleteScreensAndStoreInDb();
 
   if (navRef != null) {
-    navRef.addListener('state', sss => {
+    navRef.addListener('state', navData => {
       if (
-        sss != null &&
-        sss['data'] != null &&
-        sss['data']['state'] != null &&
-        sss['data']['state']['routes'] != null &&
-        sss['data']['state']['index'] != null
+        navData != null &&
+        navData['data'] != null &&
+        navData['data']['state'] != null &&
+        navData['data']['state']['routes'] != null &&
+        navData['data']['state']['index'] != null
       ) {
         const currentRoute =
-          sss['data']['state']['routes'][sss['data']['state']['index']];
+          navData['data']['state']['routes'][navData['data']['state']['index']];
         const screenNameUrlArray = Realm.getValue(
           DATABASE_CONSTANTS.NAME_AND_SCREEN_URL_OBJECT,
         );
