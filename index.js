@@ -1,10 +1,9 @@
 import axios, {all} from 'axios';
 import {RSA} from 'react-native-rsa-native';
 import {APP_URL, CLIENT_ID, CLIENT_SECRET} from '../../nano.config.js';
-import Base64 from 'react-native-nano/src/utils/Base64';
+import Base64 from 'react-native-nano/src/core/utils/Base64';
 import {EventRegister} from 'react-native-event-listeners';
-// import {DATABASE_CONSTANTS} from '../../utils/Utilities';
-import getDatabase from 'react-native-nano/src/modules/database/RealmDatabase';
+import getDatabase from 'react-native-nano/src/core/modules/database/RealmDatabase';
 const BASE_URL = 'https://nanoapp.dev/';
 const GET_TOKEN_URL = BASE_URL + 'auth/token/';
 
@@ -68,7 +67,7 @@ const checkValidityAndGetAuth = async () => {
   if (
     authToken == null ||
     expiryTime == null ||
-    authToken['value'] === null ||
+    authToken['value'] == null ||
     expiryTime['value'] < curr
   ) {
     authToken = {};
@@ -223,7 +222,7 @@ export const init = navRef => {
           const parsed = JSON.parse(screenNameUrlArray['value']);
 
           const currentScreenObject = parsed.find(
-            s => s.name === currentRoute['name'],
+            s => s.name == currentRoute['name'],
           );
 
           if (currentScreenObject) {
