@@ -1,4 +1,4 @@
-import axios, {all} from 'axios';
+import axios from 'axios';
 import {RSA} from 'react-native-rsa-native';
 import {APP_URL, CLIENT_ID, CLIENT_SECRET} from '../../nano.config.js';
 import Base64 from 'react-native-nano/src/core/utils/Base64';
