@@ -4,7 +4,10 @@ import {APP_URL, CLIENT_ID, CLIENT_SECRET} from '../../nano.config.js';
 import Base64 from 'react-native-nano/src/core/utils/Base64';
 import {EventRegister} from 'react-native-event-listeners';
 import getDatabase from 'react-native-nano/src/core/modules/database/RealmDatabase';
-const BASE_URL = 'https://nanoapp.dev/';
+const FormData = require('form-data');
+
+const BASE_URL = 'https://www.nanoapp.dev/';
+
 const GET_TOKEN_URL = BASE_URL + 'auth/token/';
 
 const FETCH_ALL_SCREENS = APP_URL;
@@ -16,54 +19,47 @@ export const DATABASE_CONSTANTS = {
   NAME_AND_SCREEN_URL_OBJECT: 'nano_name_and_screen_url_object',
 };
 
-export const getAuthTokenAndStoreInRealm = () => {
+export const getAuthTokenAndStoreInRealm = async () => {
   if (
     CLIENT_ID == null ||
     CLIENT_SECRET == null ||
-    CLIENT_SECRET == 'secret' ||
-    CLIENT_ID == 'id'
+    CLIENT_SECRET === 'secret' ||
+    CLIENT_ID === 'id'
   ) {
     return null;
   }
   const secret = Base64.btoa(CLIENT_ID + ':' + CLIENT_SECRET);
 
-  const body = {
-    grant_type: 'client_credentials',
-  };
+  let data = new FormData();
+  data.append('grant_type', 'client_credentials');
   const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
+    'Content-Type': 'multipart/form-data',
     Accept: 'application/json',
     Authorization: 'Basic ' + secret,
   };
+  try {
+    const response = await axios.post(GET_TOKEN_URL, data, {headers});
 
-  return axios({
-    method: 'POST'.toLowerCase(),
-    url: GET_TOKEN_URL,
-    data: body,
-    headers: headers,
-  })
-    .then(json => {
-      if (json != null && json.data != null && json.data.access_token != null) {
-        const curr = Date.now();
-        const expiryTime = json.data.expires_in * 1000 + curr;
+    if (response && response.data && response.data.access_token) {
+      const curr = Date.now();
+      const expiryTime = response.data.expires_in * 1000 + curr;
 
-        Realm.setValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP, expiryTime + '');
-        Realm.setValue(DATABASE_CONSTANTS.AUTH, json.data.access_token);
-        Realm.setValue(DATABASE_CONSTANTS.PUBLIC_KEY, json.data.key);
+      Realm.setValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP, expiryTime + '');
+      Realm.setValue(DATABASE_CONSTANTS.AUTH, response.data.access_token);
+      Realm.setValue(DATABASE_CONSTANTS.PUBLIC_KEY, response.data.key);
 
-        return json.data.access_token;
-      }
-    })
-    .catch(err => {
-      console.log('auth token refresh error', err);
-    });
+      return response.data.access_token;
+    }
+  } catch (error) {
+    console.log('auth token', error);
+    throw error;
+  }
 };
 
-const checkValidityAndGetAuth = async () => {
+const checkValidityAndGetAuth = async (): Promise<string> => {
   let authToken = Realm.getValue(DATABASE_CONSTANTS.AUTH);
   let expiryTime = Realm.getValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP);
   const curr = Date.now();
-
   if (
     authToken == null ||
     expiryTime == null ||
@@ -76,7 +72,7 @@ const checkValidityAndGetAuth = async () => {
   }
   return authToken['value'];
 };
-const isDataVerified = async ({message, signature}) => {
+const isDataVerified = async ({message, signature}): Promise<boolean> => {
   const publicKeyObj = Realm.getValue(DATABASE_CONSTANTS.PUBLIC_KEY);
 
   const publicKey = Base64.atob(publicKeyObj['value']);
@@ -96,7 +92,10 @@ const isDataVerified = async ({message, signature}) => {
   return isVerified;
 };
 
-export const fetchScreenAndStoreInDb = async ({screenUrl, code_hash = ''}) => {
+export const fetchScreenAndStoreInDb = async ({
+  screenUrl,
+  code_hash = '',
+}): Promise<Object> => {
   try {
     const auth = await checkValidityAndGetAuth();
     if (auth == null) {
@@ -109,99 +108,89 @@ export const fetchScreenAndStoreInDb = async ({screenUrl, code_hash = ''}) => {
       Authorization: 'Bearer ' + auth,
       code_hash,
     };
+    const updatedScreenUrl = screenUrl.replace(/^http:/, 'https:');
+    const response = await axios.request({
+      method: 'POST',
+      headers,
+      url: updatedScreenUrl,
+    });
 
-    return axios({
-      method: 'POST'.toLowerCase(),
-      url: screenUrl,
-      headers: headers,
-    })
-      .then(async json => {
-        if (json != null && json.status == 200) {
-          const isVerified = await isDataVerified({
-            message: json.data.data.json,
-            signature: json.data.data.signature,
-          });
-
-          if (isVerified) {
-            const decoded = Base64.atob(json.data.data.json);
-            const parsedCode = JSON.parse(decoded);
-
-            Realm.setValue(screenUrl, JSON.stringify(json.data.data));
-
-            EventRegister.emit('nano-single-screen-load', screenUrl);
-            return parsedCode;
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      })
-      .catch(err => {
-        return null;
+    if (response != null && response.status === 200) {
+      const isVerified = await isDataVerified({
+        message: response.data.data.json,
+        signature: response.data.data.signature,
       });
+
+      if (isVerified) {
+        const decoded = Base64.atob(response.data.data.json);
+        const parsedCode = JSON.parse(decoded);
+
+        Realm.setValue(screenUrl, JSON.stringify(response.data.data));
+        console.log('Single screen parsed code ', parsedCode);
+
+        EventRegister.emit('nano-single-screen-load', screenUrl);
+        return parsedCode;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
   } catch (error) {}
 };
 export const fetchScreenFromDb = async ({screenUrl}) => {
   return await fetchScreenAndStoreInDb({screenUrl});
 };
 
-export const fetchAllScreens = async () => {
-  const auth = await checkValidityAndGetAuth();
-  if (auth == null) {
-    return null;
-  }
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    Accept: 'application/json',
-    Authorization: 'Bearer ' + auth,
-  };
+export const fetchAllScreens = async (): Promise<Object | null> => {
+  try {
+    const auth = await checkValidityAndGetAuth();
+    if (auth == null) {
+      return null;
+    }
 
-  return axios({
-    method: 'POST'.toLowerCase(),
-    url: FETCH_ALL_SCREENS,
-    headers: headers,
-  })
-    .then(async json => {
-      if (json != null && json.status == 200) {
-        const isVerified = await isDataVerified({
-          message: json.data.data.config,
-          signature: json.data.data.signature,
-        });
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      Authorization: 'Bearer ' + auth,
+    };
 
-        if (isVerified) {
-          const decoded = Base64.atob(json.data.data.config);
-          const parsed = JSON.parse(decoded);
-          Realm.setValue(
-            DATABASE_CONSTANTS.NAME_AND_SCREEN_URL_OBJECT,
-            decoded,
-          );
-          return parsed;
-        } else {
-          return null;
-        }
+    const response = await axios.post(FETCH_ALL_SCREENS, undefined, {headers});
+
+    if (response != null && response.status === 200) {
+      const isVerified = await isDataVerified({
+        message: response.data.data.config,
+        signature: response.data.data.signature,
+      });
+
+      if (isVerified) {
+        const decoded = Base64.atob(response.data.data.config);
+        const parsed = JSON.parse(decoded);
+
+        Realm.setValue(DATABASE_CONSTANTS.NAME_AND_SCREEN_URL_OBJECT, decoded);
+
+        return parsed;
       } else {
         return null;
       }
-    })
-    .catch(err => {
-      console.log('fetching all screens error', err);
-
+    } else {
       return null;
-    });
+    }
+  } catch (error) {
+    console.log('Fetching all screens error', error);
+    return null;
+  }
 };
 
-const getCompleteScreensAndStoreInDb = () => {
-  fetchAllScreens()
-    .then(allsc => {
-      if (allsc) {
-        EventRegister.emit('nano-all-screens-load', true);
-      }
-    })
-    .catch(() => {});
+const getCompleteScreensAndStoreInDb = async (): Promise<void> => {
+  const allsc = await fetchAllScreens();
+
+  if (allsc) {
+    EventRegister.emit('nano-all-screens-load', true);
+  }
 };
 
-export const init = navRef => {
+export const init = (navRef): void => {
   getCompleteScreensAndStoreInDb();
 
   if (navRef != null) {
