@@ -135,7 +135,6 @@ export const fetchScreenAndStoreInDb = async ({
         const parsedCode = JSON.parse(decoded);
 
         Realm.setValue(screenUrl, JSON.stringify(response.data.data));
-        console.log('Single screen parsed code ', parsedCode);
 
         EventRegister.emit('nano-single-screen-load', screenUrl);
         return parsedCode;
