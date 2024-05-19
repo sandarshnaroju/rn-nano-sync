@@ -19,7 +19,7 @@ export const DATABASE_CONSTANTS = {
   NAME_AND_SCREEN_URL_OBJECT: 'nano_name_and_screen_url_object',
 };
 
-export const getAuthTokenAndStoreInRealm = async () => {
+export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
   if (
     CLIENT_ID == null ||
     CLIENT_SECRET == null ||
@@ -72,7 +72,13 @@ const checkValidityAndGetAuth = async (): Promise<string> => {
   }
   return authToken['value'];
 };
-const isDataVerified = async ({message, signature}): Promise<boolean> => {
+const isDataVerified = async ({
+  message,
+  signature,
+}: {
+  message: string;
+  signature: string;
+}): Promise<boolean> => {
   const publicKeyObj = Realm.getValue(DATABASE_CONSTANTS.PUBLIC_KEY);
 
   const publicKey = Base64.atob(publicKeyObj['value']);
@@ -95,7 +101,10 @@ const isDataVerified = async ({message, signature}): Promise<boolean> => {
 export const fetchScreenAndStoreInDb = async ({
   screenUrl,
   code_hash = '',
-}): Promise<Object> => {
+}: {
+  screenUrl: string;
+  code_hash: string;
+}): Promise<Object | null> => {
   try {
     const auth = await checkValidityAndGetAuth();
     if (auth == null) {
@@ -138,8 +147,12 @@ export const fetchScreenAndStoreInDb = async ({
     }
   } catch (error) {}
 };
-export const fetchScreenFromDb = async ({screenUrl}) => {
-  return await fetchScreenAndStoreInDb({screenUrl});
+export const fetchScreenFromDb = async ({
+  screenUrl,
+}: {
+  screenUrl: string;
+}): Promise<object> => {
+  return await fetchScreenAndStoreInDb({screenUrl, code_hash: ''});
 };
 
 export const fetchAllScreens = async (): Promise<Object | null> => {
@@ -154,8 +167,11 @@ export const fetchAllScreens = async (): Promise<Object | null> => {
       Accept: 'application/json',
       Authorization: 'Bearer ' + auth,
     };
+    const updatedAllScreenUrl = FETCH_ALL_SCREENS.replace(/^http:/, 'https:');
 
-    const response = await axios.post(FETCH_ALL_SCREENS, undefined, {headers});
+    const response = await axios.post(updatedAllScreenUrl, undefined, {
+      headers,
+    });
 
     if (response != null && response.status === 200) {
       const isVerified = await isDataVerified({
