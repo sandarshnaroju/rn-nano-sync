@@ -6,11 +6,6 @@ import {EventRegister} from 'react-native-event-listeners';
 import getDatabase from 'react-native-nano/src/core/modules/database/RealmDatabase';
 const FormData = require('form-data');
 
-const BASE_URL = 'https://www.nanoapp.dev/';
-
-const GET_TOKEN_URL = BASE_URL + 'auth/token/';
-
-const FETCH_ALL_SCREENS = APP_URL;
 const Realm = getDatabase();
 export const DATABASE_CONSTANTS = {
   AUTH: 'auth',
@@ -18,17 +13,35 @@ export const DATABASE_CONSTANTS = {
   PUBLIC_KEY: 'PUBLIC_KEY',
   NAME_AND_SCREEN_URL_OBJECT: 'nano_name_and_screen_url_object',
 };
+let appUrl = null;
+let appSecret = null;
+let appId = null;
+const BASE_URL = 'https://www.nanoapp.dev/';
 
+if (!appSecret) {
+  appSecret = CLIENT_SECRET;
+}
+if (!appId) {
+  appId = CLIENT_ID;
+}
+if (!appUrl) {
+  appUrl = APP_URL;
+}
+
+const GET_TOKEN_URL = BASE_URL + 'auth/token/';
+
+const FETCH_ALL_SCREENS = appUrl;
 export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
   if (
-    CLIENT_ID == null ||
-    CLIENT_SECRET == null ||
-    CLIENT_SECRET === 'secret' ||
-    CLIENT_ID === 'id'
+    appId == null ||
+    appSecret == null ||
+    appSecret === 'secret' ||
+    appId === 'id'
   ) {
     return null;
   }
-  const secret = Base64.btoa(CLIENT_ID + ':' + CLIENT_SECRET);
+
+  const secret = Base64.btoa(appId + ':' + appSecret);
 
   let data = new FormData();
   data.append('grant_type', 'client_credentials');
@@ -37,6 +50,7 @@ export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
     Accept: 'application/json',
     Authorization: 'Basic ' + secret,
   };
+
   try {
     const response = await axios.post(GET_TOKEN_URL, data, {headers});
 
@@ -46,6 +60,7 @@ export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
 
       Realm.setValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP, expiryTime + '');
       Realm.setValue(DATABASE_CONSTANTS.AUTH, response.data.access_token);
+
       Realm.setValue(DATABASE_CONSTANTS.PUBLIC_KEY, response.data.key);
 
       return response.data.access_token;
@@ -166,7 +181,12 @@ export const fetchAllScreens = async (): Promise<Object | null> => {
       Accept: 'application/json',
       Authorization: 'Bearer ' + auth,
     };
-    const updatedAllScreenUrl = FETCH_ALL_SCREENS.replace(/^http:/, 'https:');
+    const actualAppUrl =
+      appUrl != null && appUrl.length > 0 ? appUrl : FETCH_ALL_SCREENS;
+    const updatedAllScreenUrl =
+      actualAppUrl != null && actualAppUrl.length > 0
+        ? actualAppUrl.replace(/^http:/, 'https:')
+        : '';
 
     const response = await axios.post(updatedAllScreenUrl, undefined, {
       headers,
@@ -202,6 +222,27 @@ const getCompleteScreensAndStoreInDb = async (): Promise<void> => {
 
   if (allsc) {
     EventRegister.emit('nano-all-screens-load', true);
+  }
+};
+
+export const setAppDetails = ({
+  app_id,
+  app_url,
+  app_secret,
+}: {
+  app_id: string;
+  app_url: string;
+  app_secret: string;
+}): void => {
+  if (app_id) {
+    appId = app_id;
+  }
+  if (app_secret) {
+    appSecret = app_secret;
+  }
+
+  if (app_url) {
+    appUrl = app_url;
   }
 };
 
