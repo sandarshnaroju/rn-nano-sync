@@ -5,8 +5,7 @@ import Base64 from 'react-native-nano/src/core/utils/Base64';
 import {EventRegister} from 'react-native-event-listeners';
 import getDatabase from 'react-native-nano/src/core/modules/database/RealmDatabase';
 const FormData = require('form-data');
-
-const Realm = getDatabase();
+// let Realm;
 export const DATABASE_CONSTANTS = {
   AUTH: 'auth',
   EXPIRY_TIME_STAMP: 'expiry_time',
@@ -31,7 +30,11 @@ if (!appUrl) {
 const GET_TOKEN_URL = BASE_URL + 'auth/token/';
 
 const FETCH_ALL_SCREENS = appUrl;
-export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
+export const getAuthTokenAndStoreInRealm = async (
+  databaseName = '',
+): Promise<string> => {
+  const Realm = getDatabase(null, databaseName, null);
+
   if (
     appId == null ||
     appSecret == null ||
@@ -71,7 +74,9 @@ export const getAuthTokenAndStoreInRealm = async (): Promise<string> => {
   }
 };
 
-const checkValidityAndGetAuth = async (): Promise<string> => {
+const checkValidityAndGetAuth = async (databaseName): Promise<string> => {
+  const Realm = getDatabase(null, databaseName, null);
+
   let authToken = Realm.getValue(DATABASE_CONSTANTS.AUTH);
   let expiryTime = Realm.getValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP);
   const curr = Date.now();
@@ -83,17 +88,21 @@ const checkValidityAndGetAuth = async (): Promise<string> => {
   ) {
     authToken = {};
 
-    authToken['value'] = await getAuthTokenAndStoreInRealm();
+    authToken['value'] = await getAuthTokenAndStoreInRealm(databaseName);
   }
   return authToken['value'];
 };
 const isDataVerified = async ({
   message,
   signature,
+  databaseName,
 }: {
   message: string;
   signature: string;
+  databaseName: string;
 }): Promise<boolean> => {
+  const Realm = getDatabase(null, databaseName, null);
+
   const publicKeyObj = Realm.getValue(DATABASE_CONSTANTS.PUBLIC_KEY);
 
   const publicKey = Base64.atob(publicKeyObj['value']);
@@ -116,12 +125,16 @@ const isDataVerified = async ({
 export const fetchScreenAndStoreInDb = async ({
   screenUrl,
   code_hash = '',
+  databaseName,
 }: {
   screenUrl: string;
   code_hash: string;
+  databaseName: string;
 }): Promise<Object | null> => {
+  const Realm = getDatabase(null, databaseName, null);
+
   try {
-    const auth = await checkValidityAndGetAuth();
+    const auth = await checkValidityAndGetAuth(databaseName);
     if (auth == null) {
       return null;
     }
@@ -143,6 +156,7 @@ export const fetchScreenAndStoreInDb = async ({
       const isVerified = await isDataVerified({
         message: response.data.data.json,
         signature: response.data.data.signature,
+        databaseName,
       });
 
       if (isVerified) {
@@ -163,15 +177,23 @@ export const fetchScreenAndStoreInDb = async ({
 };
 export const fetchScreenFromDb = async ({
   screenUrl,
+  databaseName,
 }: {
   screenUrl: string;
+  databaseName: string;
 }): Promise<object> => {
-  return await fetchScreenAndStoreInDb({screenUrl, code_hash: ''});
+  return await fetchScreenAndStoreInDb({
+    screenUrl,
+    code_hash: '',
+    databaseName,
+  });
 };
 
-export const fetchAllScreens = async (): Promise<Object | null> => {
+export const fetchAllScreens = async (databaseName): Promise<Object | null> => {
+  const Realm = getDatabase(null, databaseName, null);
+
   try {
-    const auth = await checkValidityAndGetAuth();
+    const auth = await checkValidityAndGetAuth(databaseName);
     if (auth == null) {
       return null;
     }
@@ -196,6 +218,7 @@ export const fetchAllScreens = async (): Promise<Object | null> => {
       const isVerified = await isDataVerified({
         message: response.data.data.config,
         signature: response.data.data.signature,
+        databaseName,
       });
 
       if (isVerified) {
@@ -217,8 +240,8 @@ export const fetchAllScreens = async (): Promise<Object | null> => {
   }
 };
 
-const getCompleteScreensAndStoreInDb = async (): Promise<void> => {
-  const allsc = await fetchAllScreens();
+const getCompleteScreensAndStoreInDb = async (databaseName): Promise<void> => {
+  const allsc = await fetchAllScreens(databaseName);
 
   if (allsc) {
     EventRegister.emit('nano-all-screens-load', true);
@@ -246,8 +269,9 @@ export const setAppDetails = ({
   }
 };
 
-export const init = (navRef): void => {
-  getCompleteScreensAndStoreInDb();
+export const init = (navRef, databaseName): void => {
+  getCompleteScreensAndStoreInDb(databaseName);
+  const Realm = getDatabase(null, databaseName, null);
 
   if (navRef != null) {
     navRef.addListener('state', navData => {
@@ -274,6 +298,7 @@ export const init = (navRef): void => {
             fetchScreenAndStoreInDb({
               screenUrl: currentScreenObject['url'],
               code_hash: currentScreenObject['code_hash'],
+              databaseName,
             });
           }
         }
