@@ -5,7 +5,6 @@ import Base64 from 'react-native-nano/src/core/utils/Base64';
 import {EventRegister} from 'react-native-event-listeners';
 import getDatabase from 'react-native-nano/src/core/modules/database/RealmDatabase';
 const FormData = require('form-data');
-// let Realm;
 export const DATABASE_CONSTANTS = {
   AUTH: 'auth',
   EXPIRY_TIME_STAMP: 'expiry_time',
@@ -74,11 +73,14 @@ export const getAuthTokenAndStoreInRealm = async (
   }
 };
 
-const checkValidityAndGetAuth = async (databaseName): Promise<string> => {
+const checkValidityAndGetAuth = async (
+  databaseName: string,
+): Promise<string> => {
   const Realm = getDatabase(null, databaseName, null);
 
   let authToken = Realm.getValue(DATABASE_CONSTANTS.AUTH);
   let expiryTime = Realm.getValue(DATABASE_CONSTANTS.EXPIRY_TIME_STAMP);
+
   const curr = Date.now();
   if (
     authToken == null ||
@@ -92,6 +94,7 @@ const checkValidityAndGetAuth = async (databaseName): Promise<string> => {
   }
   return authToken['value'];
 };
+
 const isDataVerified = async ({
   message,
   signature,
@@ -189,11 +192,14 @@ export const fetchScreenFromDb = async ({
   });
 };
 
-export const fetchAllScreens = async (databaseName): Promise<Object | null> => {
+export const fetchAllScreens = async (
+  databaseName: string,
+): Promise<Object | null> => {
   const Realm = getDatabase(null, databaseName, null);
 
   try {
     const auth = await checkValidityAndGetAuth(databaseName);
+
     if (auth == null) {
       return null;
     }
@@ -240,7 +246,9 @@ export const fetchAllScreens = async (databaseName): Promise<Object | null> => {
   }
 };
 
-const getCompleteScreensAndStoreInDb = async (databaseName): Promise<void> => {
+const getCompleteScreensAndStoreInDb = async (
+  databaseName: string,
+): Promise<void> => {
   const allsc = await fetchAllScreens(databaseName);
 
   if (allsc) {
@@ -269,7 +277,7 @@ export const setAppDetails = ({
   }
 };
 
-export const init = (navRef, databaseName): void => {
+export const init = (navRef, databaseName: string): void => {
   getCompleteScreensAndStoreInDb(databaseName);
   const Realm = getDatabase(null, databaseName, null);
 
