@@ -107,18 +107,21 @@ const isDataVerified = async ({
   const publicKeyObj = Realm.getValue(DATABASE_CONSTANTS.PUBLIC_KEY);
 
   const publicKey = Base64.atob(publicKeyObj['value']);
-  let isVerified = false;
+  let isVerified: boolean = false;
 
-  isVerified = await RSA.verifyWithAlgorithm(
+  const res = await RSA.verifyWithAlgorithm(
     signature,
 
     message,
 
     publicKey,
-    RSA.SHA256withRSA,
-  ).catch(e => {
+    'SHA256withRSA',
+  );
+  if (res) {
+    isVerified = res;
+  } else {
     isVerified = false;
-  });
+  }
 
   return isVerified;
 };
@@ -162,6 +165,7 @@ export const fetchScreenAndStoreInDb = async ({
 
       if (isVerified) {
         const decoded = Base64.atob(response.data.data.json);
+
         const parsedCode = JSON.parse(decoded);
 
         Realm.setValue(screenUrl, JSON.stringify(response.data.data));
@@ -219,7 +223,6 @@ export const fetchAllScreens = async (
     });
 
     if (response != null && response.status === 200) {
-
       const isVerified = await isDataVerified({
         message: response.data.data.config,
         signature: response.data.data.signature,
@@ -228,8 +231,8 @@ export const fetchAllScreens = async (
 
       if (isVerified) {
         const decoded = Base64.atob(response.data.data.config);
-        const parsed = JSON.parse(decoded);
 
+        const parsed = JSON.parse(decoded);
         Realm.setValue(DATABASE_CONSTANTS.NAME_AND_SCREEN_URL_OBJECT, decoded);
 
         return parsed;
@@ -244,7 +247,6 @@ export const fetchAllScreens = async (
     return null;
   }
 };
-
 const getCompleteScreensAndStoreInDb = async (
   database: object,
 ): Promise<void> => {
